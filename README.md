@@ -1,6 +1,6 @@
 # OpenClaw HubProxy Event Regulator
 
-A production-grade TypeScript service that sits between HubProxy replay and OpenClaw webhook ingestion.
+A TypeScript service that sits between HubProxy replay and OpenClaw webhook ingestion.
 
 It wakes up on demand, checks OpenClaw backpressure, replays a bounded event window from HubProxy, applies declarative filtering and payload transformation, forwards only the cleaned payloads to OpenClaw, and advances a durable checkpoint only after a successful cycle.
 
@@ -116,6 +116,7 @@ Environment:
 | Variable | Description |
 | --- | --- |
 | `REGULATOR_CONFIG_PATH` | Path to the YAML/JSON config file |
+| `REGULATOR_SYNC_INTERVAL` | Optional repeat interval in milliseconds for the Docker entrypoint. If unset, the container runs only the provided CLI command. |
 
 ## Cron deployment
 
@@ -138,12 +139,14 @@ Run:
 ```bash
 docker run --rm \
   -e REGULATOR_CONFIG_PATH=/config/regulator-config.yaml \
+  -e REGULATOR_SYNC_INTERVAL=60000 \
   -v /etc/openclaw/regulator-config.yaml:/config/regulator-config.yaml:ro \
   -v /home/openclaw/.openclaw/delivery-queue:/home/openclaw/.openclaw/delivery-queue:ro \
   -v /home/openclaw:/home/openclaw \
-  openclaw-hubproxy-event-regulator \
-  --once
+  openclaw-hubproxy-event-regulator
 ```
+
+With `REGULATOR_SYNC_INTERVAL` set, the container entrypoint runs one startup cycle immediately and then repeats `node dist/index.js --once` on that interval. If the variable is omitted, the image behaves like a plain one-shot CLI container and executes the supplied arguments once.
 
 ## Project layout
 
