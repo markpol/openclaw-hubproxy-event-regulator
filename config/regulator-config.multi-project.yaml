@@ -1,0 +1,99 @@
+checkpointFile: "/var/lib/openclaw/hubproxy-checkpoint.json"
+queueDir: "/home/openclaw/.openclaw/delivery-queue"
+maxQueueThreshold: 3
+replayBatchSize: 10
+hubproxyReplayUrl: "http://hubproxy:8081/api/replay"
+openclawWebhookUrl: "http://openclaw-gateway:18789/webhook"
+defaultSinceHours: 4
+requestTimeoutMs: 12000
+
+retry:
+  attempts: 4
+  baseDelayMs: 250
+  maxDelayMs: 3000
+  backoffFactor: 2
+
+logging:
+  level: info
+
+filters:
+  pull_request:
+    allowedActions: ["opened", "synchronize", "ready_for_review", "closed", "reopened"]
+    allowedRepositories:
+      - "yourorg/repo1"
+      - "yourorg/repo2"
+      - "yourorg/repo3"
+    excludeLabels: ["ignore", "wip"]
+    fieldConditions:
+      - path: title
+        includesAny: ["release", "roadmap", "customer"]
+
+  workflow_run:
+    allowedActions: ["completed"]
+    allowedRepositories:
+      - "yourorg/repo1"
+      - "yourorg/repo2"
+    requiredConclusion: ["success", "failure"]
+
+  issues:
+    allowedActions: ["edited", "labeled", "closed"]
+    allowedRepositories:
+      - "yourorg/repo1"
+      - "yourorg/repo2"
+    fieldConditions:
+      - path: issue.title
+        includesAny: ["priority", "customer", "release"]
+
+transformations:
+  pull_request:
+    keep:
+      - action
+      - number
+      - title
+      - html_url
+      - state
+      - repository.full_name
+      - pull_request.user.login
+      - pull_request.body
+    shorten:
+      - field: pull_request.body
+        maxLength: 500
+    rename:
+      html_url: pr_url
+    add:
+      type: pull_request
+    computed:
+      - field: issue_body_summary
+        from: pull_request.body
+        operation: shorten
+        maxLength: 120
+
+  workflow_run:
+    keep:
+      - action
+      - repository.full_name
+      - workflow_run.conclusion
+      - workflow_run.html_url
+      - workflow_run.head_branch
+    rename:
+      workflow_run.conclusion: conclusion
+      workflow_run.html_url: html_url
+      workflow_run.head_branch: head_branch
+    add:
+      type: workflow_run
+
+  issues:
+    keep:
+      - action
+      - issue.number
+      - issue.title
+      - issue.html_url
+      - issue.state
+      - issue.user.login
+      - issue.body
+      - repository.full_name
+    shorten:
+      - field: issue.body
+        maxLength: 500
+    add:
+      type: issues

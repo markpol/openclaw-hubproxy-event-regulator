@@ -1,0 +1,41 @@
+{
+  "name": "openclaw-hubproxy-event-regulator",
+  "version": "1.0.0",
+  "description": "A self-regulating replay layer for forwarding filtered GitHub webhook events to OpenClaw",
+  "homepage": "https://github.com/markpol/openclaw-hubproxy-event-regulator#readme",
+  "bugs": {
+    "url": "https://github.com/markpol/openclaw-hubproxy-event-regulator/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markpol/openclaw-hubproxy-event-regulator.git"
+  },
+  "license": "MIT",
+  "author": "Mark Pietrusinski",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "dev": "node --import tsx src/index.ts --once",
+    "start": "node ./dist/index.js --once"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.6.0",
+    "eslint": "^10.2.1",
+    "prettier": "^3.8.3",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
+    "typescript": "^6.0.3"
+  }
+}

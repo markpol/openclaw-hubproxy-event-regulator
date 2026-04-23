@@ -1,2 +1,162 @@
-# openclaw-hubproxy-event-regulator
-A self-regulating replay layer for forwarding filtered Github webbook events to Openclaw
+# OpenClaw HubProxy Event Regulator
+
+A production-grade TypeScript service that sits between HubProxy replay and OpenClaw webhook ingestion.
+
+It wakes up on demand, checks OpenClaw backpressure, replays a bounded event window from HubProxy, applies declarative filtering and payload transformation, forwards only the cleaned payloads to OpenClaw, and advances a durable checkpoint only after a successful cycle.
+
+## Features
+
+- **Cron-first runtime** with explicit `--once` mode for operational simplicity
+- **Backpressure aware** queue gating based on the OpenClaw delivery queue directory
+- **Declarative config** via YAML with Zod validation and fail-fast startup errors
+- **Fine-grained filtering** by event action, repository, labels, sender, workflow conclusion, and custom field conditions
+- **Payload transformation** with keep, shorten, rename, add, and computed-field rules
+- **Structured JSON logs** without leaking full webhook payloads
+- **Checkpoint persistence** in JSON with legacy plain-text checkpoint migration support
+- **Retry logic** for transient HubProxy/OpenClaw failures
+- **Docker-ready** image and example configs for single-project and multi-project setups
+
+## Expected HubProxy replay contract
+
+The regulator expects `POST /api/replay` to return replayable event objects, not just a replay count.
+
+Accepted response shapes:
+
+1. A JSON array of events
+2. An object containing `events` or `items`
+
+Each event object should provide:
+
+- `event`, `type`, or `name` for the GitHub event name
+- `payload`, `body`, or `data` containing the webhook JSON payload
+- optional `headers`
+- optional `deliveryId`/`delivery_id`, `id`, `timestamp`, `receivedAt`, or `action`
+
+If HubProxy returns only `replayed_count`, the regulator will fail fast because transformation and forwarding require raw event payloads.
+
+## Configuration
+
+The service loads a single YAML or JSON config file at startup.
+
+See:
+
+- `config/regulator-config.yaml`
+- `config/regulator-config.multi-project.yaml`
+
+Example:
+
+```yaml
+checkpointFile: "/home/openclaw/.hubproxy-checkpoint.json"
+queueDir: "/home/openclaw/.openclaw/delivery-queue"
+maxQueueThreshold: 3
+replayBatchSize: 8
+hubproxyReplayUrl: "http://hubproxy:8081/api/replay"
+openclawWebhookUrl: "http://openclaw-gateway:18789/webhook"
+defaultSinceHours: 2
+
+filters:
+  pull_request:
+    allowedActions: ["opened", "synchronize", "ready_for_review", "closed", "reopened"]
+    allowedRepositories: ["yourorg/repo1"]
+    excludeLabels: ["ignore", "wip"]
+
+transformations:
+  pull_request:
+    keep:
+      - action
+      - number
+      - title
+      - html_url
+      - state
+      - repository.full_name
+      - pull_request.user.login
+      - pull_request.body
+    shorten:
+      - field: pull_request.body
+        maxLength: 800
+    rename:
+      html_url: pr_url
+    add:
+      type: pull_request
+```
+
+## Development
+
+```bash
+npm install
+npm run typecheck
+npm test
+npm run build
+```
+
+Run locally:
+
+```bash
+export REGULATOR_CONFIG_PATH=./config/regulator-config.yaml
+node --import tsx src/index.ts --once
+```
+
+## CLI
+
+```bash
+export REGULATOR_CONFIG_PATH=/path/to/regulator-config.yaml
+node dist/index.js --once
+```
+
+Options:
+
+| Flag | Description |
+| --- | --- |
+| `--once` | Run a single regulator cycle and exit |
+| `--config <path>` | Optional override for `REGULATOR_CONFIG_PATH` |
+| `--help` | Print CLI usage |
+
+Environment:
+
+| Variable | Description |
+| --- | --- |
+| `REGULATOR_CONFIG_PATH` | Path to the YAML/JSON config file |
+
+## Cron deployment
+
+Example cron entry:
+
+```cron
+* * * * * REGULATOR_CONFIG_PATH=/etc/openclaw/regulator-config.yaml /usr/bin/node /opt/openclaw-hubproxy-event-regulator/dist/index.js --once >> /var/log/openclaw-hubproxy-event-regulator.log 2>&1
+```
+
+## Docker
+
+Build:
+
+```bash
+docker build -t openclaw-hubproxy-event-regulator .
+```
+
+Run:
+
+```bash
+docker run --rm \
+  -e REGULATOR_CONFIG_PATH=/config/regulator-config.yaml \
+  -v /etc/openclaw/regulator-config.yaml:/config/regulator-config.yaml:ro \
+  -v /home/openclaw/.openclaw/delivery-queue:/home/openclaw/.openclaw/delivery-queue:ro \
+  -v /home/openclaw:/home/openclaw \
+  openclaw-hubproxy-event-regulator \
+  --once
+```
+
+## Project layout
+
+```text
+src/
+  clients/
+  services/
+  rules/
+test/
+config/
+```
+
+## Notes
+
+- Version 1 is intentionally **cron-first**. Daemon mode and metrics endpoints are extension points for a follow-up release.
+- The checkpoint file is written atomically as JSON and can read the legacy plain-text timestamp format used by the original shell script.

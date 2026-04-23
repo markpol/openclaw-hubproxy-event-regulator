@@ -1,0 +1,80 @@
+checkpointFile: "/home/openclaw/.hubproxy-checkpoint.json"
+queueDir: "/home/openclaw/.openclaw/delivery-queue"
+maxQueueThreshold: 3
+replayBatchSize: 8
+hubproxyReplayUrl: "http://hubproxy:8081/api/replay"
+openclawWebhookUrl: "http://openclaw-gateway:18789/webhook"
+defaultSinceHours: 2
+requestTimeoutMs: 10000
+
+retry:
+  attempts: 3
+  baseDelayMs: 250
+  maxDelayMs: 2000
+  backoffFactor: 2
+
+logging:
+  level: info
+
+filters:
+  pull_request:
+    allowedActions: ["opened", "synchronize", "ready_for_review", "closed", "reopened"]
+    allowedRepositories: ["yourorg/repo1", "yourorg/repo2"]
+    requiredLabels: []
+    excludeLabels: ["ignore", "wip"]
+
+  workflow_run:
+    allowedActions: ["completed"]
+    requiredConclusion: ["success", "failure"]
+
+  issues:
+    allowedActions: ["edited", "labeled", "closed"]
+
+transformations:
+  pull_request:
+    keep:
+      - action
+      - number
+      - title
+      - html_url
+      - state
+      - repository.full_name
+      - pull_request.user.login
+      - pull_request.body
+    shorten:
+      - field: pull_request.body
+        maxLength: 800
+    rename:
+      html_url: pr_url
+    add:
+      type: pull_request
+
+  workflow_run:
+    keep:
+      - action
+      - repository.full_name
+      - workflow_run.conclusion
+      - workflow_run.html_url
+      - workflow_run.head_branch
+    rename:
+      workflow_run.conclusion: conclusion
+      workflow_run.html_url: html_url
+      workflow_run.head_branch: head_branch
+    add:
+      type: workflow_run
+
+  issues:
+    keep:
+      - action
+      - issue.number
+      - issue.title
+      - issue.html_url
+      - issue.state
+      - issue.user.login
+      - issue.body
+      - repository.full_name
+    shorten:
+      - field: issue.body
+        maxLength: 600
+    add:
+      type: issues
