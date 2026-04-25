@@ -3,7 +3,7 @@ import { Logger } from "../logger.js";
 import { HttpStatusError, withRetry } from "../services/retry.js";
 import type { JsonObject, ReplayEvent } from "../types.js";
 
-// const forwardedHeaders = ["x-github-delivery", "x-github-event", "x-hub-signature-256"] as const;
+const forwardedHeaders = ["x-github-delivery", "x-hub-signature-256"] as const;
 export class OpenClawClient {
   private readonly hooksToken: string;
 
@@ -19,21 +19,20 @@ export class OpenClawClient {
       async () => {
         const headers = new Headers({
           Authorization: `Bearer ${this.hooksToken}`,
-          // "x-openclaw-token": this.hooksToken,
           "Content-Type": "application/json",
-          // "x-github-event": event.event,
+          "x-github-event": event.event,
         });
 
         if (event.deliveryId) {
-          // headers.set("x-github-delivery", event.deliveryId);
+          headers.set("x-github-delivery", event.deliveryId);
         }
 
-        // for (const headerName of forwardedHeaders) {
-        //   const headerValue = event.headers[headerName];
-        //   if (headerValue) {
-        //     headers.set(headerName, headerValue);
-        //   }
-        // }
+        for (const headerName of forwardedHeaders) {
+          const headerValue = event.headers[headerName];
+          if (headerValue) {
+            headers.set(headerName, headerValue);
+          }
+        }
 
         const response = await fetch(this.config.openclawWebhookUrl, {
           method: "POST",
@@ -75,7 +74,7 @@ export function resolveHooksToken(env: NodeJS.ProcessEnv): string {
   return token;
 }
 
-function buildOpenClawMessage(payload: JsonObject): { text: string; mode: "now" } {
+export function buildOpenClawMessage(payload: JsonObject): { text: string; mode: "now" } {
   return {
     text: `A github event has ocurrend. Here are the details: \n${JSON.stringify(payload)}`,
     mode: "now",

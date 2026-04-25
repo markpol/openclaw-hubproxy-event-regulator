@@ -96,11 +96,18 @@ export REGULATOR_CONFIG_PATH=./config/regulator-config.yaml
 node --import tsx src/index.ts --once
 ```
 
+Replay a local events fixture through the configured filters and transformations:
+
+```bash
+npm run replay -- --config ./config/regulator-config.yaml --replay-file ./data/test/issues-1.json
+```
+
 ## CLI
 
 ```bash
 export REGULATOR_CONFIG_PATH=/path/to/regulator-config.yaml
 node dist/index.js --once
+node dist/index.js --config /path/to/regulator-config.yaml --replay-file ./data/test/issues-1.json
 ```
 
 Options:
@@ -109,6 +116,8 @@ Options:
 | --- | --- |
 | `--once` | Run a single regulator cycle and exit |
 | `--config <path>` | Optional override for `REGULATOR_CONFIG_PATH` |
+| `--replay-file <path>` | Process a local replay/events JSON file and print the filtered/transformed OpenClaw-bound output |
+| `--out <path>` | Write replay-file output to a file instead of stdout |
 | `--help` | Print CLI usage |
 
 Environment:

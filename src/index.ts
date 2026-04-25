@@ -1,24 +1,42 @@
 #!/usr/bin/env node
 
+import { writeFile } from "node:fs/promises";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { Logger } from "./logger.js";
+import { simulateReplayFile } from "./replay-simulator.js";
 import { EventRegulator } from "./regulator.js";
 
 interface CliOptions {
   configPath?: string;
+  outputPath?: string;
   once: boolean;
+  replayFilePath?: string;
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const options = parseArgs(argv);
 
-  if (!options.once) {
-    throw new Error("Version 1 only supports --once mode.");
+  const config = await loadConfig(resolveConfigPath(options.configPath, process.env));
+
+  if (options.replayFilePath) {
+    const simulation = await simulateReplayFile(options.replayFilePath, config);
+    const output = `${JSON.stringify(simulation, null, 2)}\n`;
+
+    if (options.outputPath) {
+      await writeFile(options.outputPath, output, "utf8");
+    } else {
+      process.stdout.write(output);
+    }
+
+    return;
   }
 
-  const config = await loadConfig(resolveConfigPath(options.configPath, process.env));
+  if (!options.once) {
+    throw new Error("Pass --once to run the regulator or --replay-file <path> to process a local events fixture.");
+  }
+
   const logger = new Logger(config.logging.level);
   const regulator = new EventRegulator(config, logger);
   const result = await regulator.runOnce();
@@ -26,9 +44,11 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   logger.info("Process finished", { ...result });
 }
 
-function parseArgs(argv: string[]): CliOptions {
+export function parseArgs(argv: string[]): CliOptions {
   let configPath: string | undefined;
+  let outputPath: string | undefined;
   let once = false;
+  let replayFilePath: string | undefined;
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -54,17 +74,51 @@ function parseArgs(argv: string[]): CliOptions {
       continue;
     }
 
+    if (argument === "--replay-file") {
+      const next = argv[index + 1];
+      if (!next) {
+        throw new Error("--replay-file requires a path.");
+      }
+
+      replayFilePath = next;
+      index += 1;
+      continue;
+    }
+
+    if (argument === "--out") {
+      const next = argv[index + 1];
+      if (!next) {
+        throw new Error("--out requires a path.");
+      }
+
+      outputPath = next;
+      index += 1;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${argument}`);
   }
 
-  return configPath
-    ? {
-        configPath,
-        once,
-      }
-    : {
-        once,
-      };
+  if (once && replayFilePath) {
+    throw new Error("Use either --once or --replay-file <path>, not both.");
+  }
+
+  if (outputPath && !replayFilePath) {
+    throw new Error("--out can only be used together with --replay-file.");
+  }
+
+  const options: CliOptions = { once };
+  if (configPath) {
+    options.configPath = configPath;
+  }
+  if (outputPath) {
+    options.outputPath = outputPath;
+  }
+  if (replayFilePath) {
+    options.replayFilePath = replayFilePath;
+  }
+
+  return options;
 }
 
 function printHelp(): void {
@@ -72,10 +126,13 @@ function printHelp(): void {
 
 Usage:
   REGULATOR_CONFIG_PATH=/path/to/regulator-config.yaml node dist/index.js --once
+  REGULATOR_CONFIG_PATH=/path/to/regulator-config.yaml node dist/index.js --replay-file ./data/test/issues-1.json
 
 Options:
   --once             Run a single replay cycle and exit
   --config <path>    Optional override for REGULATOR_CONFIG_PATH
+  --replay-file      Read a local replay/events JSON file, apply filters and transformations, and print the OpenClaw-bound payloads
+  --out <path>       Write replay-file output to a file instead of stdout
   --help             Print this help text
 `);
 }
