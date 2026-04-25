@@ -3,7 +3,6 @@ import { Logger } from "../logger.js";
 import { HttpStatusError, withRetry } from "../services/retry.js";
 import type { JsonObject, ReplayEvent } from "../types.js";
 
-const forwardedHeaders = ["x-github-delivery", "x-hub-signature-256"] as const;
 export class OpenClawClient {
   private readonly hooksToken: string;
 
@@ -20,19 +19,7 @@ export class OpenClawClient {
         const headers = new Headers({
           Authorization: `Bearer ${this.hooksToken}`,
           "Content-Type": "application/json",
-          "x-github-event": event.event,
         });
-
-        if (event.deliveryId) {
-          headers.set("x-github-delivery", event.deliveryId);
-        }
-
-        for (const headerName of forwardedHeaders) {
-          const headerValue = event.headers[headerName];
-          if (headerValue) {
-            headers.set(headerName, headerValue);
-          }
-        }
 
         const response = await fetch(this.config.openclawWebhookUrl, {
           method: "POST",
