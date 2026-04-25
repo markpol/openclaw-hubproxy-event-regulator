@@ -3,37 +3,42 @@ import { Logger } from "../logger.js";
 import { HttpStatusError, withRetry } from "../services/retry.js";
 import type { JsonObject, ReplayEvent } from "../types.js";
 
-const forwardedHeaders = ["x-github-delivery", "x-github-event", "x-hub-signature-256"] as const;
-
+// const forwardedHeaders = ["x-github-delivery", "x-github-event", "x-hub-signature-256"] as const;
 export class OpenClawClient {
+  private readonly hooksToken: string;
+
   public constructor(
     private readonly config: RegulatorConfig,
     private readonly logger: Logger,
-  ) {}
+  ) {
+    this.hooksToken = resolveHooksToken(process.env);
+  }
 
   public async forward(event: ReplayEvent, payload: JsonObject): Promise<void> {
     await withRetry(
       async () => {
         const headers = new Headers({
-          "content-type": "application/json",
-          "x-github-event": event.event,
+          Authorization: `Bearer ${this.hooksToken}`,
+          // "x-openclaw-token": this.hooksToken,
+          "Content-Type": "application/json",
+          // "x-github-event": event.event,
         });
 
         if (event.deliveryId) {
-          headers.set("x-github-delivery", event.deliveryId);
+          // headers.set("x-github-delivery", event.deliveryId);
         }
 
-        for (const headerName of forwardedHeaders) {
-          const headerValue = event.headers[headerName];
-          if (headerValue) {
-            headers.set(headerName, headerValue);
-          }
-        }
+        // for (const headerName of forwardedHeaders) {
+        //   const headerValue = event.headers[headerName];
+        //   if (headerValue) {
+        //     headers.set(headerName, headerValue);
+        //   }
+        // }
 
         const response = await fetch(this.config.openclawWebhookUrl, {
           method: "POST",
           headers,
-          body: JSON.stringify(payload),
+          body: JSON.stringify(buildOpenClawMessage(payload)),
           signal: AbortSignal.timeout(this.config.requestTimeoutMs),
         });
 
@@ -57,4 +62,22 @@ export class OpenClawClient {
       },
     );
   }
+}
+
+export function resolveHooksToken(env: NodeJS.ProcessEnv): string {
+  const token = env.OPENCLAW_HOOKS_TOKEN?.trim();
+  if (!token) {
+    throw new Error(
+      "OPENCLAW_HOOKS_TOKEN is required to forward events to OpenClaw.",
+    );
+  }
+
+  return token;
+}
+
+function buildOpenClawMessage(payload: JsonObject): { text: string; mode: "now" } {
+  return {
+    text: `A github event has ocurrend. Here are the details: \n${JSON.stringify(payload)}`,
+    mode: "now",
+  };
 }

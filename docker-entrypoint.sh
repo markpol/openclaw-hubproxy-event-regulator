@@ -7,6 +7,7 @@ log() {
 
 run_regulator() {
   log "[regulator] Starting run: node dist/index.js $*"
+  log "[regulator] Config directory: ${REGULATOR_CONFIG_PATH:-/app/data}"
   node dist/index.js "$@"
 }
 

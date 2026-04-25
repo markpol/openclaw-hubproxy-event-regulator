@@ -1,6 +1,6 @@
 import type { RegulatorConfig } from "../config.js";
 import { Logger } from "../logger.js";
-import type { JsonObject, JsonValue, ReplayEvent, ReplayResult } from "../types.js";
+import type { JsonObject, ReplayEvent, ReplayResult } from "../types.js";
 import { getAtPath, isJsonObject } from "../utils/json-path.js";
 import { HttpStatusError, withRetry } from "../services/retry.js";
 
@@ -20,18 +20,19 @@ export class HubProxyClient {
   public async replay(request: ReplayRequest): Promise<ReplayResult> {
     return withRetry(
       async () => {
-        const response = await fetch(this.config.hubproxyReplayUrl, {
+        const replayUrl = buildReplayUrl(this.config.hubproxyReplayUrl, request);
+        const response = await fetch(replayUrl, {
           method: "POST",
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(request),
           signal: AbortSignal.timeout(this.config.requestTimeoutMs),
         });
 
+        if (response.status === 404) {
+          return emptyReplayResult();
+        }
+
         if (!response.ok) {
           throw new HttpStatusError(
-            this.config.hubproxyReplayUrl,
+            replayUrl,
             response.status,
             await response.text(),
           );
@@ -50,6 +51,26 @@ export class HubProxyClient {
       },
     );
   }
+}
+
+function buildReplayUrl(baseUrl: string, request: ReplayRequest): string {
+  const url = new URL(baseUrl);
+  url.searchParams.set("since", request.since);
+  url.searchParams.set("until", request.until);
+  url.searchParams.set("limit", String(request.limit));
+
+  for (const type of request.types) {
+    url.searchParams.append("types", type);
+  }
+
+  return url.toString();
+}
+
+function emptyReplayResult(): ReplayResult {
+  return {
+    events: [],
+    replayedCount: 0,
+  };
 }
 
 function normalizeReplayResponse(input: unknown): ReplayResult {

@@ -18,7 +18,7 @@ It wakes up on demand, checks OpenClaw backpressure, replays a bounded event win
 
 ## Expected HubProxy replay contract
 
-The regulator expects `POST /api/replay` to return replayable event objects, not just a replay count.
+The regulator expects `POST /api/replay` with replay arguments in the query string to return replayable event objects, not just a replay count.
 
 Accepted response shapes:
 
@@ -116,6 +116,7 @@ Environment:
 | Variable | Description |
 | --- | --- |
 | `REGULATOR_CONFIG_PATH` | Path to the YAML/JSON config file |
+| `OPENCLAW_HOOKS_TOKEN` | Bearer token sent as `Authorization: Bearer <token>` when forwarding to OpenClaw |
 | `REGULATOR_SYNC_INTERVAL` | Optional repeat interval in milliseconds for the Docker entrypoint. If unset, the container runs only the provided CLI command. |
 
 ## Cron deployment
@@ -123,7 +124,7 @@ Environment:
 Example cron entry:
 
 ```cron
-* * * * * REGULATOR_CONFIG_PATH=/etc/openclaw/regulator-config.yaml /usr/bin/node /opt/openclaw-hubproxy-event-regulator/dist/index.js --once >> /var/log/openclaw-hubproxy-event-regulator.log 2>&1
+* * * * * REGULATOR_CONFIG_PATH=/etc/openclaw/regulator-config.yaml OPENCLAW_HOOKS_TOKEN=your-token /usr/bin/node /opt/openclaw-hubproxy-event-regulator/dist/index.js --once >> /var/log/openclaw-hubproxy-event-regulator.log 2>&1
 ```
 
 ## Docker
@@ -139,6 +140,7 @@ Run:
 ```bash
 docker run --rm \
   -e REGULATOR_CONFIG_PATH=/config/regulator-config.yaml \
+  -e OPENCLAW_HOOKS_TOKEN=your-token \
   -e REGULATOR_SYNC_INTERVAL=60000 \
   -v /etc/openclaw/regulator-config.yaml:/config/regulator-config.yaml:ro \
   -v /home/openclaw/.openclaw/delivery-queue:/home/openclaw/.openclaw/delivery-queue:ro \
@@ -163,3 +165,4 @@ config/
 
 - Version 1 is intentionally **cron-first**. Daemon mode and metrics endpoints are extension points for a follow-up release.
 - The checkpoint file is written atomically as JSON and can read the legacy plain-text timestamp format used by the original shell script.
+- OpenClaw forwarding requires `OPENCLAW_HOOKS_TOKEN`; the service fails fast if it is missing.
