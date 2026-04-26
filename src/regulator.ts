@@ -86,7 +86,7 @@ export class EventRegulator {
       }
 
       const transformedPayload = transformPayload(event.payload, transformation);
-      await this.openClawClient.forward(event, transformedPayload);
+      await this.openClawClient.forward(event, transformedPayload, transformation);
       forwardedCount += 1;
     }
 

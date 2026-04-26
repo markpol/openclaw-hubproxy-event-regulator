@@ -137,6 +137,26 @@ test("runs one replay cycle and forwards transformed payloads", async () => {
           type: "pull_request",
         },
         computed: [],
+        messageTemplates: [
+          {
+            template:
+              "Workflow alert for {{payload.repository.full_name}}: {{payload.title}} by {{payload.pull_request.user.login}} ({{payload.pr_url}})",
+            filters: {
+              allowedActions: ["opened"],
+              allowedRepositories: ["yourorg/repo1"],
+              requiredLabels: [],
+              excludeLabels: [],
+              allowedSenders: [],
+              requiredConclusion: [],
+              titleIncludesAny: ["release"],
+              bodyIncludesAny: [],
+              fieldConditions: [],
+            },
+          },
+          {
+            template: "Default PR template for {{payload.type}}",
+          },
+        ],
       },
     },
   };
@@ -153,7 +173,7 @@ test("runs one replay cycle and forwards transformed payloads", async () => {
 
     assert.deepEqual(JSON.parse(openClawPayloads[0]!.body), {
       text:
-        'A github event has ocurrend. Here are the details: \n{"action":"opened","number":42,"title":"Release customer fix","repository":{"full_name":"yourorg/repo1"},"pull_request":{"user":{"login":"mark"},"body":"This body is defi..."},"pr_url":"https://github.com/yourorg/repo1/pull/42","type":"pull_request"}',
+        "Workflow alert for yourorg/repo1: Release customer fix by mark (https://github.com/yourorg/repo1/pull/42)",
       mode: "now",
     });
 

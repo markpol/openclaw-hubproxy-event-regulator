@@ -11,6 +11,7 @@ It wakes up on demand, checks OpenClaw backpressure, replays a bounded event win
 - **Declarative config** via YAML with Zod validation and fail-fast startup errors
 - **Fine-grained filtering** by event action, repository, labels, sender, workflow conclusion, and custom field conditions
 - **Payload transformation** with keep, shorten, rename, add, and computed-field rules
+- **Configurable message templates** with ordered first-match selection and default fallbacks
 - **Structured JSON logs** without leaking full webhook payloads
 - **Checkpoint persistence** in JSON with legacy plain-text checkpoint migration support
 - **Retry logic** for transient HubProxy/OpenClaw failures
@@ -78,7 +79,17 @@ transformations:
       html_url: pr_url
     add:
       type: pull_request
+    messageTemplates:
+      - template: "PR #{{payload.number}} in {{payload.repository.full_name}}: {{payload.title}}"
+        filters:
+          allowedActions: ["opened", "reopened"]
+      - template: "PR update for {{payload.repository.full_name}}: {{payload.title}} ({{payload.pr_url}})"
 ```
+
+`messageTemplates` are evaluated in order. The first template whose optional `filters` match the original replay event is used. A final entry with no `filters` acts as the default template and must be last. Template placeholders use `{{...}}` paths and can read from:
+
+- `payload.*` or `transformedPayload.*` for the transformed payload sent to OpenClaw
+- `event.*` for the original replay event, including `event.payload.*` for untransformed webhook fields
 
 ## Development
 

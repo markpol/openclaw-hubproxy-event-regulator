@@ -67,6 +67,11 @@ transformations:
         from: pull_request.body
         operation: shorten
         maxLength: 120
+    messageTemplates:
+      - template: "Release PR in {{payload.repository.full_name}}: {{payload.title}} ({{payload.pr_url}})"
+        filters:
+          titleIncludesAny: ["release"]
+      - template: "PR activity in {{payload.repository.full_name}}: {{payload.title}} by {{payload.pull_request.user.login}}"
 
   workflow_run:
     keep:
@@ -81,6 +86,11 @@ transformations:
       workflow_run.head_branch: head_branch
     add:
       type: workflow_run
+    messageTemplates:
+      - template: "Workflow failed on {{payload.head_branch}} for {{payload.repository.full_name}}: {{event.payload.workflow_run.html_url}}"
+        filters:
+          requiredConclusion: ["failure"]
+      - template: "Workflow {{payload.conclusion}} on {{payload.head_branch}} for {{payload.repository.full_name}}"
 
   issues:
     keep:

@@ -52,6 +52,26 @@ const config: RegulatorConfig = {
         type: "issues",
       },
       computed: [],
+      messageTemplates: [
+        {
+          template:
+            "Issue #{{payload.issue.number}} in {{payload.repository.full_name}} was assigned by {{event.payload.sender.login}}: {{payload.issue.summary}}",
+          filters: {
+            allowedActions: ["assigned"],
+            allowedRepositories: [],
+            requiredLabels: [],
+            excludeLabels: [],
+            allowedSenders: [],
+            requiredConclusion: [],
+            titleIncludesAny: [],
+            bodyIncludesAny: [],
+            fieldConditions: [],
+          },
+        },
+        {
+          template: "Default issue template for {{payload.type}}",
+        },
+      ],
     },
   },
 };
@@ -127,7 +147,7 @@ test("simulates local replay processing and returns forwarded OpenClaw messages"
         },
         openClawMessage: {
           text:
-            'A github event has ocurrend. Here are the details: \n{"action":"assigned","issue":{"number":304,"body":"Move Quick Start into...","summary":"Relocate Quick Start scenario cards"},"repository":{"full_name":"netabit/liber-flux"},"type":"issues"}',
+            "Issue #304 in netabit/liber-flux was assigned by markpol: Relocate Quick Start scenario cards",
           mode: "now",
         },
       },

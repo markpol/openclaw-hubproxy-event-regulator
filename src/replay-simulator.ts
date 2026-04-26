@@ -70,7 +70,7 @@ export function simulateReplayPayload(
     forwarded.push({
       ...pickEventMetadata(event),
       transformedPayload,
-      openClawMessage: buildOpenClawMessage(transformedPayload),
+      openClawMessage: buildOpenClawMessage(event, transformedPayload, transformation),
     });
   }
 

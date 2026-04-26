@@ -73,13 +73,52 @@ const computedFieldSchema = z
     }
   });
 
-const transformationRuleSchema = z.object({
-  keep: z.array(z.string().min(1)).min(1),
-  shorten: z.array(shortenRuleSchema).default([]),
-  rename: z.record(z.string().min(1), z.string().min(1)).default({}),
-  add: z.record(z.string().min(1), jsonValueSchema).default({}),
-  computed: z.array(computedFieldSchema).default([]),
+const messageTemplateConfigSchema = z.object({
+  template: z.string().min(1),
+  filters: filterRuleSchema.optional(),
 });
+
+const transformationRuleSchema = z
+  .object({
+    keep: z.array(z.string().min(1)).min(1),
+    shorten: z.array(shortenRuleSchema).default([]),
+    rename: z.record(z.string().min(1), z.string().min(1)).default({}),
+    add: z.record(z.string().min(1), jsonValueSchema).default({}),
+    computed: z.array(computedFieldSchema).default([]),
+    messageTemplates: z.array(messageTemplateConfigSchema).min(1).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.messageTemplates) {
+      return;
+    }
+
+    let defaultTemplateIndex: number | undefined;
+
+    for (const [index, messageTemplate] of value.messageTemplates.entries()) {
+      if (hasConfiguredFilterRules(messageTemplate.filters)) {
+        continue;
+      }
+
+      if (defaultTemplateIndex !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["messageTemplates", index],
+          message: "Only one default message template is allowed.",
+        });
+        continue;
+      }
+
+      defaultTemplateIndex = index;
+
+      if (index !== value.messageTemplates.length - 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["messageTemplates", index],
+          message: "Default message templates without filters must be last.",
+        });
+      }
+    }
+  });
 
 const retrySchema = z.object({
   attempts: z.number().int().min(1).default(3),
@@ -140,6 +179,7 @@ export const regulatorConfigSchema = z
 export type RegulatorConfig = z.infer<typeof regulatorConfigSchema>;
 export type EventFilterConfig = z.infer<typeof filterRuleSchema>;
 export type EventTransformationConfig = z.infer<typeof transformationRuleSchema>;
+export type MessageTemplateConfig = z.infer<typeof messageTemplateConfigSchema>;
 export type RetryConfig = z.infer<typeof retrySchema>;
 export type LogLevel = z.infer<typeof loggingSchema>["level"];
 
@@ -156,4 +196,22 @@ export async function loadConfig(configPath: string): Promise<RegulatorConfig> {
   }
 
   return regulatorConfigSchema.parse(parsed);
+}
+
+function hasConfiguredFilterRules(filter: z.infer<typeof filterRuleSchema> | undefined): boolean {
+  if (!filter) {
+    return false;
+  }
+
+  return (
+    filter.allowedActions.length > 0 ||
+    filter.allowedRepositories.length > 0 ||
+    filter.requiredLabels.length > 0 ||
+    filter.excludeLabels.length > 0 ||
+    filter.allowedSenders.length > 0 ||
+    filter.requiredConclusion.length > 0 ||
+    filter.titleIncludesAny.length > 0 ||
+    filter.bodyIncludesAny.length > 0 ||
+    filter.fieldConditions.length > 0
+  );
 }
