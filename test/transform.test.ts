@@ -47,3 +47,59 @@ test("transforms payloads using keep, shorten, rename, add, and computed rules",
     type: "pull_request",
   });
 });
+
+test("transforms payloads using wildcard array paths in keep rules", () => {
+  const rule: EventTransformationConfig = {
+    keep: [
+      "workflow_run.id",
+      "workflow_run.pull_requests[].number",
+      "workflow_run.jobs[].steps[].name",
+    ],
+    shorten: [],
+    rename: {},
+    add: {},
+    computed: [],
+  };
+
+  const result = transformPayload(
+    {
+      workflow_run: {
+        id: 24,
+        pull_requests: [
+          {
+            id: 1,
+            url: "https://example.test/pulls/315",
+            number: 315,
+          },
+          {
+            id: 2,
+            url: "https://example.test/pulls/316",
+            number: 316,
+          },
+        ],
+        jobs: [
+          {
+            id: 10,
+            steps: [
+              { name: "checkout", conclusion: "success" },
+              { name: "test", conclusion: "failure" },
+            ],
+          },
+        ],
+      },
+    },
+    rule,
+  );
+
+  assert.deepEqual(result, {
+    workflow_run: {
+      id: 24,
+      pull_requests: [{ number: 315 }, { number: 316 }],
+      jobs: [
+        {
+          steps: [{ name: "checkout" }, { name: "test" }],
+        },
+      ],
+    },
+  });
+});

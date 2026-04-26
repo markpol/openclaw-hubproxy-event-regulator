@@ -91,6 +91,11 @@ transformations:
 - `payload.*` or `transformedPayload.*` for the transformed payload sent to OpenClaw
 - `event.*` for the original replay event, including `event.payload.*` for untransformed webhook fields
 
+Transformation paths also support array selectors:
+
+- `workflow_run.pull_requests[].number` keeps `number` from every object in the array
+- `workflow_run.pull_requests[0].number` keeps it only from the first array entry
+
 ## Development
 
 ```bash
@@ -113,6 +118,12 @@ Replay a local events fixture through the configured filters and transformations
 npm run replay -- --config ./config/regulator-config.yaml --replay-file ./data/test/issues-1.json
 ```
 
+Omit the detailed `dropped` event list while keeping `droppedCount` in the summary output:
+
+```bash
+npm run replay -- --config ./config/regulator-config.yaml --replay-file ./data/test/issues-1.json --omit-dropped
+```
+
 ## CLI
 
 ```bash
@@ -129,6 +140,7 @@ Options:
 | `--config <path>` | Optional override for `REGULATOR_CONFIG_PATH` |
 | `--replay-file <path>` | Process a local replay/events JSON file and print the filtered/transformed OpenClaw-bound output |
 | `--out <path>` | Write replay-file output to a file instead of stdout |
+| `--omit-dropped` | Omit the detailed `dropped` array from replay-file output while preserving `droppedCount` |
 | `--help` | Print CLI usage |
 
 Environment:

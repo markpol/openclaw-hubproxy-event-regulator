@@ -5,11 +5,13 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { Logger } from "./logger.js";
+import type { ReplaySimulationResult } from "./replay-simulator.js";
 import { simulateReplayFile } from "./replay-simulator.js";
 import { EventRegulator } from "./regulator.js";
 
 interface CliOptions {
   configPath?: string;
+  omitDropped: boolean;
   outputPath?: string;
   once: boolean;
   replayFilePath?: string;
@@ -22,7 +24,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (options.replayFilePath) {
     const simulation = await simulateReplayFile(options.replayFilePath, config);
-    const output = `${JSON.stringify(simulation, null, 2)}\n`;
+    const output = `${JSON.stringify(formatReplayOutput(simulation, options.omitDropped), null, 2)}\n`;
 
     if (options.outputPath) {
       await writeFile(options.outputPath, output, "utf8");
@@ -46,6 +48,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
 export function parseArgs(argv: string[]): CliOptions {
   let configPath: string | undefined;
+  let omitDropped = false;
   let outputPath: string | undefined;
   let once = false;
   let replayFilePath: string | undefined;
@@ -96,6 +99,11 @@ export function parseArgs(argv: string[]): CliOptions {
       continue;
     }
 
+    if (argument === "--omit-dropped") {
+      omitDropped = true;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${argument}`);
   }
 
@@ -107,7 +115,11 @@ export function parseArgs(argv: string[]): CliOptions {
     throw new Error("--out can only be used together with --replay-file.");
   }
 
-  const options: CliOptions = { once };
+  if (omitDropped && !replayFilePath) {
+    throw new Error("--omit-dropped can only be used together with --replay-file.");
+  }
+
+  const options: CliOptions = { once, omitDropped };
   if (configPath) {
     options.configPath = configPath;
   }
@@ -133,8 +145,21 @@ Options:
   --config <path>    Optional override for REGULATOR_CONFIG_PATH
   --replay-file      Read a local replay/events JSON file, apply filters and transformations, and print the OpenClaw-bound payloads
   --out <path>       Write replay-file output to a file instead of stdout
+  --omit-dropped     Exclude the dropped event details array from replay-file output
   --help             Print this help text
 `);
+}
+
+export function formatReplayOutput(
+  simulation: ReplaySimulationResult,
+  omitDropped: boolean,
+): Omit<ReplaySimulationResult, "dropped"> | ReplaySimulationResult {
+  if (!omitDropped) {
+    return simulation;
+  }
+
+  const { dropped: _dropped, ...output } = simulation;
+  return output;
 }
 
 export function resolveConfigPath(
