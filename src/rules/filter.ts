@@ -70,31 +70,89 @@ export function evaluateEventFilter(
     }
   }
 
+  const fieldConditionResult = evaluateFieldConditions(event, filter);
+  if (!fieldConditionResult.allowed) {
+    return fieldConditionResult;
+  }
+
+  return { allowed: true };
+}
+
+function evaluateFieldConditions(
+  event: ReplayEvent,
+  filter: EventFilterConfig,
+): FilterResult {
+  let combinedAllowed = true;
+  let combinedInitialized = false;
+  let lastFailureReason: string | undefined;
+
   for (const condition of filter.fieldConditions) {
-    const value = getAtPath(event.payload, condition.path);
+    const result = evaluateFieldCondition(event, condition);
 
-    if (condition.exists !== undefined) {
-      const exists = value !== undefined;
-      if (exists !== condition.exists) {
-        return { allowed: false, reason: "field_exists_mismatch" };
-      }
+    if (!combinedInitialized) {
+      combinedAllowed = result.allowed;
+      combinedInitialized = true;
+    } else if (condition.combineWithPrevious === "OR") {
+      combinedAllowed = combinedAllowed || result.allowed;
+    } else {
+      combinedAllowed = combinedAllowed && result.allowed;
     }
 
-    const text = coerceText(value);
-
-    if (condition.equalsAny && (!text || !condition.equalsAny.includes(text))) {
-      return { allowed: false, reason: "field_equals_mismatch" };
+    if (!result.allowed) {
+      lastFailureReason = result.reason;
     }
+  }
 
-    if (condition.includesAny && !containsAny(text, condition.includesAny)) {
-      return { allowed: false, reason: "field_includes_mismatch" };
+  if (combinedAllowed) {
+    return { allowed: true };
+  }
+
+  return lastFailureReason
+    ? { allowed: false, reason: lastFailureReason }
+    : { allowed: false };
+}
+
+function evaluateFieldCondition(
+  event: ReplayEvent,
+  condition: EventFilterConfig["fieldConditions"][number],
+): FilterResult {
+  const value = getAtPath(event.payload, condition.path);
+
+  if (condition.exists !== undefined) {
+    const exists = value !== undefined;
+    if (exists !== condition.exists) {
+      return { allowed: false, reason: "field_exists_mismatch" };
     }
+  }
 
-    if (condition.matchesRegex) {
-      const regex = new RegExp(condition.matchesRegex, "i");
-      if (!text || !regex.test(text)) {
-        return { allowed: false, reason: "field_regex_mismatch" };
-      }
+  if (condition.notExists !== undefined) {
+    const exists = value !== undefined;
+    if (exists === condition.notExists) {
+      return { allowed: false, reason: "field_not_exists_mismatch" };
+    }
+  }
+
+  const text = coerceText(value);
+
+  if (condition.includesAny && !containsAny(text, condition.includesAny)) {
+    return { allowed: false, reason: "field_includes_mismatch" };
+  }
+
+  if (condition.excludesAny && containsAny(text, condition.excludesAny)) {
+    return { allowed: false, reason: "field_excludes_mismatch" };
+  }
+
+  if (condition.matchesRegex) {
+    const regex = new RegExp(condition.matchesRegex, "i");
+    if (!text || !regex.test(text)) {
+      return { allowed: false, reason: "field_regex_mismatch" };
+    }
+  }
+
+  if (condition.notMatchesRegex) {
+    const regex = new RegExp(condition.notMatchesRegex, "i");
+    if (text && regex.test(text)) {
+      return { allowed: false, reason: "field_not_regex_mismatch" };
     }
   }
 

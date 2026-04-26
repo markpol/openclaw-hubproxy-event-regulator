@@ -86,6 +86,35 @@ transformations:
       - template: "PR update for {{payload.repository.full_name}}: {{payload.title}} ({{payload.pr_url}})"
 ```
 
+`fieldConditions` are evaluated left to right. Each item can combine with the previous result using `AND` or `OR` through `combineWithPrevious`.
+
+Supported field condition matchers:
+
+- `exists: true|false`
+- `notExists: true|false`
+- `includesAny: ["..."]`
+- `excludesAny: ["..."]`
+- `matchesRegex: "..."`
+- `notMatchesRegex: "..."`
+
+Example:
+
+```yaml
+filters:
+  workflow_run:
+    fieldConditions:
+      - path: workflow.name
+        includesAny: ["Playwright"]
+      - path: workflow.name
+        combineWithPrevious: OR
+        includesAny: ["Unit"]
+      - path: workflow_run.head_branch
+        combineWithPrevious: AND
+        notMatchesRegex: "^dependabot/"
+```
+
+`equalsAny` is no longer supported; use `includesAny` instead.
+
 `messageTemplates` are evaluated in order. The first template whose optional `filters` match the original replay event is used. A final entry with no `filters` acts as the default template and must be last. Template placeholders use `{{...}}` paths and can read from:
 
 - `payload.*` or `transformedPayload.*` for the transformed payload sent to OpenClaw

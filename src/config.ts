@@ -18,21 +18,51 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 const fieldConditionSchema = z
   .object({
     path: z.string().min(1),
+    combineWithPrevious: z.enum(["AND", "OR"]).default("AND"),
     exists: z.boolean().optional(),
-    equalsAny: z.array(z.string().min(1)).optional(),
+    notExists: z.boolean().optional(),
     includesAny: z.array(z.string().min(1)).optional(),
+    excludesAny: z.array(z.string().min(1)).optional(),
     matchesRegex: z.string().min(1).optional(),
+    notMatchesRegex: z.string().min(1).optional(),
   })
+  .strict()
   .superRefine((value, ctx) => {
     if (
       value.exists === undefined &&
-      !value.equalsAny &&
+      value.notExists === undefined &&
       !value.includesAny &&
-      !value.matchesRegex
+      !value.excludesAny &&
+      !value.matchesRegex &&
+      !value.notMatchesRegex
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Field conditions must define at least one matcher.",
+      });
+    }
+
+    if (value.exists !== undefined && value.notExists !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["notExists"],
+        message: "Use either exists or notExists, not both.",
+      });
+    }
+
+    if (value.includesAny && value.excludesAny) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["excludesAny"],
+        message: "Use either includesAny or excludesAny, not both.",
+      });
+    }
+
+    if (value.matchesRegex && value.notMatchesRegex) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["notMatchesRegex"],
+        message: "Use either matchesRegex or notMatchesRegex, not both.",
       });
     }
   });

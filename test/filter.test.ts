@@ -38,7 +38,7 @@ test("allows events that satisfy configured rules", () => {
     requiredConclusion: [],
     titleIncludesAny: ["release"],
     bodyIncludesAny: ["customer"],
-    fieldConditions: [{ path: "pull_request.title", includesAny: ["customer"] }],
+    fieldConditions: [{ path: "pull_request.title", combineWithPrevious: "AND", includesAny: ["customer"] }],
   };
 
   assert.deepEqual(evaluateEventFilter(baseEvent, filter), { allowed: true });
@@ -58,4 +58,76 @@ test("rejects events when a required label is missing", () => {
   };
 
   assert.equal(evaluateEventFilter(baseEvent, filter).allowed, false);
+});
+
+test("supports OR chaining and negated field condition matchers", () => {
+  const filter: EventFilterConfig = {
+    allowedActions: ["opened"],
+    allowedRepositories: ["yourorg/repo1"],
+    requiredLabels: [],
+    excludeLabels: [],
+    allowedSenders: [],
+    requiredConclusion: [],
+    titleIncludesAny: [],
+    bodyIncludesAny: [],
+    fieldConditions: [
+      {
+        path: "pull_request.title",
+        combineWithPrevious: "AND",
+        includesAny: ["nonexistent"],
+      },
+      {
+        path: "pull_request.body",
+        combineWithPrevious: "OR",
+        matchesRegex: "customer-facing",
+      },
+      {
+        path: "pull_request.body",
+        combineWithPrevious: "AND",
+        excludesAny: ["internal only"],
+      },
+      {
+        path: "pull_request.merged_at",
+        combineWithPrevious: "AND",
+        notExists: true,
+      },
+      {
+        path: "sender.login",
+        combineWithPrevious: "AND",
+        notMatchesRegex: "^bot-",
+      },
+    ],
+  };
+
+  assert.deepEqual(evaluateEventFilter(baseEvent, filter), { allowed: true });
+});
+
+test("rejects events when negated field conditions fail after OR grouping", () => {
+  const filter: EventFilterConfig = {
+    allowedActions: ["opened"],
+    allowedRepositories: ["yourorg/repo1"],
+    requiredLabels: [],
+    excludeLabels: [],
+    allowedSenders: [],
+    requiredConclusion: [],
+    titleIncludesAny: [],
+    bodyIncludesAny: [],
+    fieldConditions: [
+      {
+        path: "pull_request.title",
+        combineWithPrevious: "AND",
+        includesAny: ["customer"],
+      },
+      {
+        path: "sender.login",
+        combineWithPrevious: "AND",
+        notMatchesRegex: "^mark$",
+      },
+    ],
+  };
+
+  assert.deepEqual(evaluateEventFilter(baseEvent, filter), {
+    allowed: false,
+    reason: "field_not_regex_mismatch",
+  });
 });
