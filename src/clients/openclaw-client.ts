@@ -84,13 +84,10 @@ export function buildOpenClawMessage(
   event: ReplayEvent,
   payload: JsonObject,
   transformation?: Pick<EventTransformationConfig, "messageTemplates">,
-): { text: string; mode: "now" } {
+): string {
   const template = selectMessageTemplate(event, transformation?.messageTemplates);
 
-  return {
-    text: template ? renderMessageTemplate(template, event, payload) : buildLegacyMessage(payload),
-    mode: "now",
-  };
+  return template ? renderMessageTemplate(template, event, payload) : buildLegacyMessage(payload);
 }
 
 function selectMessageTemplate(
@@ -154,7 +151,7 @@ function stringifyTemplateValue(value: unknown): string {
 }
 
 function buildLegacyMessage(payload: JsonObject): string {
-  return `${LEGACY_MESSAGE_PREFIX}${stringifyPayload(payload)}`;
+  return stringifyPayload(payload);
 }
 
 function stringifyPayload(payload: JsonObject): string {

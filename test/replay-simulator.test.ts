@@ -145,11 +145,8 @@ test("simulates local replay processing and returns forwarded OpenClaw messages"
           },
           type: "issues",
         },
-        openClawMessage: {
-          text:
-            "Issue #304 in netabit/liber-flux was assigned by markpol: Relocate Quick Start scenario cards",
-          mode: "now",
-        },
+        openClawMessage:
+          "Issue #304 in netabit/liber-flux was assigned by markpol: Relocate Quick Start scenario cards",
       },
   ]);
   assert.deepEqual(result.dropped, [

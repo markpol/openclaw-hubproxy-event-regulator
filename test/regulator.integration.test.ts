@@ -171,11 +171,10 @@ test("runs one replay cycle and forwards transformed payloads", async () => {
     assert.equal(result.forwardedCount, 1);
     assert.equal(openClawPayloads.length, 1);
 
-    assert.deepEqual(JSON.parse(openClawPayloads[0]!.body), {
-      text:
-        "Workflow alert for yourorg/repo1: Release customer fix by mark (https://github.com/yourorg/repo1/pull/42)",
-      mode: "now",
-    });
+    assert.equal(
+      JSON.parse(openClawPayloads[0]!.body),
+      "Workflow alert for yourorg/repo1: Release customer fix by mark (https://github.com/yourorg/repo1/pull/42)",
+    );
 
     assert.equal(openClawPayloads[0]!.headers["x-github-event"], "pull_request");
     assert.equal(openClawPayloads[0]!.headers["x-hub-signature-256"], "sha256=deadbeef");

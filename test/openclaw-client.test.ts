@@ -71,10 +71,10 @@ test("buildOpenClawMessage uses the first matching message template", () => {
     ],
   };
 
-  assert.deepEqual(buildOpenClawMessage(event, transformedPayload, transformation), {
-    text: "Run success for yourorg/repo1 at https://github.com/yourorg/repo1/actions/runs/100",
-    mode: "now",
-  });
+  assert.equal(
+    buildOpenClawMessage(event, transformedPayload, transformation),
+    "Run success for yourorg/repo1 at https://github.com/yourorg/repo1/actions/runs/100",
+  );
 });
 
 test("buildOpenClawMessage falls back to the default message template", () => {
@@ -118,10 +118,10 @@ test("buildOpenClawMessage falls back to the default message template", () => {
     ],
   };
 
-  assert.deepEqual(buildOpenClawMessage(event, transformedPayload, transformation), {
-    text: "Default template for workflow_run using workflow_run",
-    mode: "now",
-  });
+  assert.equal(
+    buildOpenClawMessage(event, transformedPayload, transformation),
+    "Default template for workflow_run using workflow_run",
+  );
 });
 
 test("buildOpenClawMessage exposes the full transformed payload as payload.json", () => {
@@ -152,11 +152,10 @@ test("buildOpenClawMessage exposes the full transformed payload as payload.json"
     ],
   };
 
-  assert.deepEqual(buildOpenClawMessage(event, transformedPayload, transformation), {
-    text:
-      'Payload dump:\n{\n  "type": "issues",\n  "issue": {\n    "number": 42,\n    "title": "Template payload json"\n  }\n}',
-    mode: "now",
-  });
+  assert.equal(
+    buildOpenClawMessage(event, transformedPayload, transformation),
+    'Payload dump:\n{\n  "type": "issues",\n  "issue": {\n    "number": 42,\n    "title": "Template payload json"\n  }\n}',
+  );
 });
 
 test("buildOpenClawMessage preserves the legacy fallback when no message templates are configured", () => {
@@ -172,9 +171,8 @@ test("buildOpenClawMessage preserves the legacy fallback when no message templat
     action: "assigned",
   };
 
-  assert.deepEqual(buildOpenClawMessage(event, transformedPayload), {
-    text:
-      'A github event has ocurrend. Here are the details: \n{\n  "type": "issues",\n  "action": "assigned"\n}',
-    mode: "now",
-  });
+  assert.equal(
+    buildOpenClawMessage(event, transformedPayload),
+    '{\n  "type": "issues",\n  "action": "assigned"\n}',
+  );
 });
